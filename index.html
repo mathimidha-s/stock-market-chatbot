@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Market Chatbot</title>
+<style>
+  :root{--bg:#07110d;--panel:#0e1d17;--panel2:#11241c;--line:#1e3a2c;--green:#3fe07e;--green-dim:#1f7a46;--red:#ff5d5d;--amber:#e8b84b;--text:#e7f3ea;--muted:#7fa08d;--faint:#4e6858}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column}
+  .mono{font-family:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace}
+  button{font-family:inherit;cursor:pointer}
+  input{font-family:inherit}
+
+  header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)}
+  .title{font-weight:700;font-size:18px}
+  .title span{color:var(--green)}
+  .sub{font-size:11px;color:var(--muted)}
+  .hright{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{font-size:11px;padding:5px 9px;border:1px solid var(--line);border-radius:6px;color:var(--muted)}
+  .pill.open{color:var(--green)}
+  .pill .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:5px}
+  .pill.open .dot{background:var(--green);animation:blink 1.6s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--text);padding:6px 10px;font-size:12px}
+
+  .tape{background:var(--panel);border-bottom:1px solid var(--line);overflow:hidden;white-space:nowrap;padding:6px 0;font-size:12px}
+  .track{display:inline-block;animation:scroll 40s linear infinite}
+  .tape:hover .track{animation-play-state:paused}
+  @keyframes scroll{to{transform:translateX(-50%)}}
+  .tk{padding:0 16px;color:var(--muted)}
+  .up{color:var(--green)} .down{color:var(--red)}
+
+  .main{flex:1;min-height:0;display:grid;grid-template-columns:340px 1fr}
+  .side{border-right:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+  .lbl{font-size:11px;letter-spacing:1px;color:var(--muted)}
+  .row{display:flex;gap:6px}
+  input.txt{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:9px 10px;color:var(--text);font-size:13px;outline:none;min-width:0}
+  input.txt:focus{border-color:var(--green-dim)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:transparent;border:1px solid var(--line);border-radius:5px;padding:4px 8px;font-size:11px;color:var(--muted)}
+  .chip:hover{color:var(--green);border-color:var(--green-dim)}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-height:190px}
+  .cname{font-size:12px;color:var(--muted)}
+  .csym{font-size:12px;color:var(--faint);margin-bottom:6px}
+  .price{font-size:32px;font-weight:600;line-height:1.15}
+  .chg{font-size:13px;margin-top:4px}
+  .bar{position:relative;height:4px;background:var(--line);border-radius:2px;margin-top:14px}
+  .bar i{position:absolute;top:-3px;width:10px;height:10px;border-radius:50%;background:var(--green);margin-left:-5px}
+  .barlbl{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:6px}
+  .stamp{font-size:10.5px;color:var(--faint);margin-top:10px}
+  .warn{color:var(--amber);font-size:12.5px;line-height:1.5}
+  .note{font-size:10.5px;color:var(--faint);line-height:1.5}
+
+  .chat{display:flex;flex-direction:column;min-height:0}
+  .msgs{flex:1;min-height:0;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:10px}
+  .msg{max-width:80%;padding:10px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word}
+  .msg.bot{align-self:flex-start;background:var(--panel)}
+  .msg.user{align-self:flex-end;background:var(--green-dim)}
+  .msg.err{border-color:var(--amber);color:var(--amber)}
+  .typing{align-self:flex-start;color:var(--muted);font-size:13px}
+  .composer{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+  .composer input{flex:1;padding:11px 14px;border-radius:8px;font-size:14px}
+  .send{background:var(--green);border:none;border-radius:8px;padding:0 18px;color:#05170d;font-weight:700;font-size:15px}
+  .send:disabled{opacity:.5;cursor:default}
+
+  footer{text-align:center;padding:7px 0;font-size:10.5px;color:var(--faint);border-top:1px solid var(--line)}
+
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .modal.show{display:flex}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;width:440px;max-width:100%}
+  .box h3{margin:0 0 14px;font-size:16px}
+  .box label{display:block;font-size:12px;color:var(--muted);margin-top:12px}
+  .box input{width:100%;margin-top:6px}
+  .hint{font-size:11px;color:var(--faint);margin-top:5px}
+  .savebtn{width:100%;margin-top:18px;background:var(--green);border:none;border-radius:8px;padding:10px;color:#05170d;font-weight:700}
+
+  @media (max-width:820px){
+    .main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+    .side{border-right:none;border-bottom:1px solid var(--line);max-height:48vh}
+    .msg{max-width:92%}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="title">STOCK DESK <span>//</span> Stock Market Chatbot</div>
+    <div class="sub mono">live global quotes + Gemini AI assistant</div>
+  </div>
+  <div class="hright">
+    <div class="pill mono" id="stNSE"><span class="dot"></span>NSE</div>
+    <div class="pill mono" id="stNYSE"><span class="dot"></span>NYSE</div>
+    <button class="btn" id="openSettings">&#9881; Settings</button>
+  </div>
+</header>
+
+<div class="tape mono"><div class="track" id="track"></div></div>
+
+<div class="main">
+  <aside class="side">
+    <div class="lbl">MARKET WATCH</div>
+    <div class="row">
+      <input class="txt mono" id="symInput" placeholder="RELIANCE.NS, AAPL, ^NSEI" value="RELIANCE.NS">
+      <button class="btn" id="symGo">Go</button>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="card" id="quoteCard"></div>
+    <div class="note mono">Data: Yahoo Finance via your own Cloudflare Worker. Auto-refreshes every 15 s. Some exchanges (e.g. NSE) can be delayed up to 15 min.</div>
+  </aside>
+
+  <section class="chat">
+    <div class="msgs" id="msgs"></div>
+    <div class="composer">
+      <input class="txt" id="chatInput" placeholder="Ask: show me Infosys stock price / what is P/E ratio?" autocomplete="off">
+      <button class="send" id="sendBtn">&#10148;</button>
+    </div>
+  </section>
+</div>
+
+<footer class="mono">Not financial advice.</footer>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h3>Settings</h3>
+    <label>Cloudflare Worker URL (live prices)</label>
+    <input class="txt mono" id="workerIn" placeholder="https://stock-proxy.yourname.workers.dev">
+    <div class="hint">Paste the base URL only, nothing after .workers.dev</div>
+    <label>Gemini API key (chat)</label>
+    <input class="txt mono" id="geminiIn" placeholder="AIza...">
+    <div class="hint">Free key: aistudio.google.com/apikey</div>
+    <button class="savebtn" id="saveBtn">Save &amp; Close</button>
+    <div class="hint" style="margin-top:10px">Stored only in this browser. Sent only to Google and to your own Worker.</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ---------- config ---------- */
+const MODELS = ["gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-3.6-flash"];
+const WATCH = [
+  ["NIFTY 50", "^NSEI"], ["SENSEX", "^BSESN"], ["RELIANCE", "RELIANCE.NS"], ["TCS", "TCS.NS"],
+  ["INFY", "INFY.NS"], ["HDFCBANK", "HDFCBANK.NS"], ["AAPL", "AAPL"], ["TSLA", "TSLA"], ["NVDA", "NVDA"],
+];
+const ALIAS = { "nifty": "^NSEI", "nifty 50": "^NSEI", "nifty50": "^NSEI", "sensex": "^BSESN", "bank nifty": "^NSEBANK", "banknifty": "^NSEBANK" };
+
+const cfg = {
+  worker: (localStorage.getItem("sd_worker") || "").replace(/\/+$/, ""),
+  gemini: localStorage.getItem("sd_gemini") || "",
+};
+const state = { symbol: "RELIANCE.NS", quote: null, history: [], busy: false };
+
+/* ---------- market status ---------- */
+function minsIn(tz) {
+  const d = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+  return { day: d.getDay(), m: d.getHours() * 60 + d.getMinutes() };
+}
+function updateMarketStatus() {
+  const ist = minsIn("Asia/Kolkata"), ny = minsIn("America/New_York");
+  const nse = ist.day >= 1 && ist.day <= 5 && ist.m >= 555 && ist.m <= 930;
+  const nyse = ny.day >= 1 && ny.day <= 5 && ny.m >= 570 && ny.m <= 960;
+  $("stNSE").className = "pill mono" + (nse ? " open" : "");
+  $("stNSE").innerHTML = '<span class="dot"></span>NSE ' + (nse ? "OPEN" : "CLOSED");
+  $("stNYSE").className = "pill mono" + (nyse ? " open" : "");
+  $("stNYSE").innerHTML = '<span class="dot"></span>NYSE ' + (nyse ? "OPEN" : "CLOSED");
+}
+
+/* ---------- quotes ---------- */
+function money(v, cur, sym) {
+  if (v == null || isNaN(v)) return "-";
+  const n = v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (sym.startsWith("^")) return n;
+  const p = { INR: "\u20B9", USD: "$", GBP: "\u00A3", EUR: "\u20AC", JPY: "\u00A5" }[cur];
+  return p ? p + n : n + " " + (cur || "");
+}
+
+async function fetchQuote(sym) {
+  if (!cfg.worker) throw new Error("Worker URL not set. Open Settings and paste it.");
+  let res, data;
+  try { res = await fetch(cfg.worker + "/quote?symbol=" + encodeURIComponent(sym)); }
+  catch (e) { throw new Error("Cannot reach your Worker. Check the URL in Settings."); }
+  try { data = await res.json(); }
+  catch (e) { throw new Error("Worker gave an unexpected response (HTTP " + res.status + ")."); }
+  const r = data && data.chart && data.chart.result && data.chart.result[0];
+  if (!r) {
+    const m = (data && data.chart && data.chart.error && data.chart.error.description) || (data && data.error) || "Symbol not found";
+    throw new Error(m);
+  }
+  const m = r.meta;
+  const price = m.regularMarketPrice;
+  const prev = m.chartPreviousClose != null ? m.chartPreviousClose : m.previousClose;
+  if (price == null || prev == null) throw new Error("No price data for " + sym);
+  return {
+    symbol: m.symbol || sym,
+    name: m.longName || m.shortName || m.symbol || sym,
+    currency: m.currency || "",
+    price, prev,
+    change: price - prev,
+    pct: ((price - prev) / prev) * 100,
+    high: m.regularMarketDayHigh, low: m.regularMarketDayLow,
+    wkHigh: m.fiftyTwoWeekHigh, wkLow: m.fiftyTwoWeekLow,
+    time: new Date(),
+  };
+}
+
+function bar(lo, hi, p, label) {
+  if (lo == null || hi == null || hi === lo) return "";
+  const pos = Math.max(0, Math.min(100, ((p - lo) / (hi - lo)) * 100));
+  return '<div class="bar"><i style="left:' + pos + '%"></i></div>' +
+    '<div class="barlbl mono"><span>' + lo.toFixed(2) + "</span><span>" + label + "</span><span>" + hi.toFixed(2) + "</span></div>";
+}
+
+function renderQuote(q) {
+  const up = q.change >= 0;
+  $("quoteCard").innerHTML =
+    '<div class="cname">' + esc(q.name) + "</div>" +
+    '<div class="csym mono">' + esc(q.symbol) + "</div>" +
+    '<div class="price mono">' + money(q.price, q.currency, q.symbol) + "</div>" +
+    '<div class="chg mono ' + (up ? "up" : "down") + '">' + (up ? "&#9650; +" : "&#9660; ") +
+      q.change.toFixed(2) + " (" + (up ? "+" : "") + q.pct.toFixed(2) + "%)</div>" +
+    bar(q.low, q.high, q.price, "day range") +
+    bar(q.wkLow, q.wkHigh, q.price, "52-week") +
+    '<div class="stamp mono">updated ' + q.time.toLocaleTimeString() + "</div>";
+}
+
+function renderError(msg) {
+  $("quoteCard").innerHTML = '<div class="warn">' + esc(msg) + "</div>";
+}
+
+async function loadQuote(sym, quiet) {
+  state.symbol = sym;
+  $("symInput").value = sym;
+  if (!quiet) $("quoteCard").innerHTML = '<div class="cname">Fetching live price...</div>';
+  try {
+    const q = await fetchQuote(sym);
+    state.quote = q;
+    renderQuote(q);
+    return q;
+  } catch (e) {
+    if (!quiet || !state.quote) renderError(e.message);
+    return null;
+  }
+}
+
+/* ---------- ticker tape ---------- */
+function buildTape() {
+  const one = WATCH.map(([label, sym]) => '<span class="tk" data-sym="' + sym + '">' + label + " ...</span>").join("");
+  $("track").innerHTML = one + one;
+}
+async function refreshTape() {
+  if (!cfg.worker) return;
+  const results = await Promise.allSettled(WATCH.map(([, s]) => fetchQuote(s)));
+  results.forEach((r, i) => {
+    if (r.status !== "fulfilled") return;
+    const q = r.value, [label, sym] = WATCH[i], up = q.change >= 0;
+    const html = label + " " + q.price.toLocaleString(undefined, { maximumFractionDigits: 2 }) +
+      ' <span class="' + (up ? "up" : "down") + '">' + (up ? "&#9650;" : "&#9660;") + Math.abs(q.pct).toFixed(2) + "%</span>";
+    document.querySelectorAll('[data-sym="' + sym + '"]').forEach((el) => (el.innerHTML = html));
+  });
+}
+
+/* ---------- symbol resolution from chat text ---------- */
+const PRICE_INTENT = /\b(price|prices|quote|stock|stocks|share|shares|trading|nifty|sensex|banknifty)\b/i;
+const FILLER = /\b(show|me|tell|give|what|whats|what's|is|are|the|a|an|of|for|price|prices|stock|stocks|share|shares|quote|current|currently|live|today|todays|now|latest|please|how|much|trading|at|in|and|about|check|get|can|you|i|want|to|know|see)\b/gi;
+
+function extractQuery(text) {
+  return text.replace(FILLER, " ").replace(/[?!,;:"]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+async function resolveSymbol(q) {
+  const key = q.toLowerCase();
+  if (ALIAS[key]) return ALIAS[key];
+  if (/^[\w^.&-]{1,20}$/.test(q) && /[.^]/.test(q)) return q.toUpperCase();
+  const res = await fetch(cfg.worker + "/search?q=" + encodeURIComponent(q));
+  const d = await res.json();
+  const list = (d && d.quotes) || [];
+  const pick = list.find((x) => ["EQUITY", "INDEX", "ETF"].includes(x.quoteType)) || list[0];
+  return pick ? pick.symbol : null;
+}
+
+/* ---------- Gemini ---------- */
+async function askGemini(ctx) {
+  if (!cfg.gemini) throw new Error("Add your Gemini API key in Settings first.");
+  const sys =
+    "You are a concise, friendly stock market assistant for retail investors, today is " + new Date().toDateString() + ". " +
+    "Explain concepts clearly in short, practical answers. Reply in the same language the user writes in (English, Tamil or Tanglish). " +
+    "When asked about a specific stock's price, use ONLY the live quote data given below; never invent prices. " +
+    "For buy/sell opinions, give balanced points and add a brief 'not financial advice' note. " +
+    (ctx
+      ? "LIVE QUOTE (Yahoo Finance, may be delayed up to 15 min): " + JSON.stringify({
+          symbol: ctx.symbol, name: ctx.name, price: ctx.price, currency: ctx.currency,
+          change: +ctx.change.toFixed(2), changePercent: +ctx.pct.toFixed(2),
+          dayHigh: ctx.high, dayLow: ctx.low, week52High: ctx.wkHigh, week52Low: ctx.wkLow,
+        })
+      : "No live quote is available for this message. If the user wanted a specific price, say you could not find that ticker and ask for the exact symbol (e.g. TCS.NS, AAPL).");
+
+  const contents = state.history.slice(-10).map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
+  let lastErr = "";
+  for (const model of MODELS) {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(cfg.gemini);
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: sys }] }, contents }),
+      });
+    } catch (e) { throw new Error("Network error reaching Gemini."); }
+
+    if (res.status === 404) { lastErr = "Model " + model + " not available."; continue; }
+    if (res.status === 429) throw new Error("Gemini free quota hit (429). Wait a minute and retry. If it happens on your very first message, enable billing on your Google Cloud project to unlock the free allowance.");
+    if (!res.ok) {
+      let msg = "HTTP " + res.status;
+      try { msg = (await res.json()).error.message; } catch (e) {}
+      throw new Error("Gemini error: " + msg);
+    }
+    const data = await res.json();
+    const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+    const text = parts ? parts.map((p) => p.text || "").join("") : "";
+    if (text) return text;
+    throw new Error("Gemini returned an empty reply. Try rephrasing.");
+  }
+  throw new Error(lastErr + " Check ai.google.dev/gemini-api/docs/models for the current model name and edit MODELS in index.html.");
+}
+
+/* ---------- chat UI ---------- */
+function fmt(t) {
+  return esc(t).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/^[*-] /gm, "\u2022 ");
+}
+function addMsg(kind, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + kind;
+  d.innerHTML = fmt(text);
+  $("msgs").appendChild(d);
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+}
+function setTyping(on) {
+  const old = $("typing");
+  if (old) old.remove();
+  if (on) {
+    const d = document.createElement("div");
+    d.id = "typing"; d.className = "typing"; d.textContent = "typing...";
+    $("msgs").appendChild(d);
+    $("msgs").scrollTop = $("msgs").scrollHeight;
+  }
+}
+
+async function send() {
+  const text = $("chatInput").value.trim();
+  if (!text || state.busy) return;
+  state.busy = true; $("sendBtn").disabled = true;
+  $("chatInput").value = "";
+  addMsg("user", text);
+  state.history.push({ role: "user", text });
+  setTyping(true);
+
+  let ctx = state.quote;
+  try {
+    if (cfg.worker && PRICE_INTENT.test(text)) {
+      const q = extractQuery(text);
+      if (q && q.split(" ").length <= 4) {
+        const sym = await resolveSymbol(q);
+        if (sym) {
+          const fresh = await loadQuote(sym, true);
+          if (fresh) ctx = fresh;
+        }
+      }
+    }
+  } catch (e) { /* lookup is best-effort */ }
+
+  try {
+    const reply = await askGemini(ctx);
+    state.history.push({ role: "model", text: reply });
+    setTyping(false);
+    addMsg("bot", reply);
+  } catch (e) {
+    state.history.pop();
+    setTyping(false);
+    addMsg("bot err", e.message);
+  }
+  state.busy = false; $("sendBtn").disabled = false;
+  $("chatInput").focus();
+}
+
+/* ---------- settings ---------- */
+function openSettings() {
+  $("workerIn").value = cfg.worker;
+  $("geminiIn").value = cfg.gemini;
+  $("modal").classList.add("show");
+}
+function saveSettings() {
+  cfg.worker = $("workerIn").value.trim().replace(/\/+$/, "");
+  cfg.gemini = $("geminiIn").value.trim();
+  localStorage.setItem("sd_worker", cfg.worker);
+  localStorage.setItem("sd_gemini", cfg.gemini);
+  $("modal").classList.remove("show");
+  loadQuote(state.symbol);
+  refreshTape();
+}
+
+/* ---------- init ---------- */
+function init() {
+  $("chips").innerHTML = WATCH.map(([l, s]) => '<button class="chip mono" data-s="' + s + '">' + l + "</button>").join("");
+  $("chips").addEventListener("click", (e) => { const s = e.target.dataset.s; if (s) loadQuote(s); });
+  $("symGo").onclick = () => { const v = $("symInput").value.trim().toUpperCase(); if (v) loadQuote(v); };
+  $("symInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("symGo").click(); });
+  $("sendBtn").onclick = send;
+  $("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  $("openSettings").onclick = openSettings;
+  $("saveBtn").onclick = saveSettings;
+  $("modal").addEventListener("click", (e) => { if (e.target.id === "modal") $("modal").classList.remove("show"); });
+
+  buildTape();
+  updateMarketStatus();
+  setInterval(updateMarketStatus, 30000);
+
+  addMsg("bot", "Hi! I'm your Stock Market Chatbot. Ask me for any stock's live price (e.g. \"show me Reliance stock price\") or any market concept.");
+
+  if (!cfg.worker || !cfg.gemini) {
+    renderError("Open \u2699 Settings and add your Worker URL and Gemini API key.");
+    openSettings();
+  } else {
+    loadQuote(state.symbol);
+    refreshTape();
+  }
+  setInterval(() => { if (cfg.worker && !document.hidden) loadQuote(state.symbol, true); }, 15000);
+  setInterval(() => { if (cfg.worker && !document.hidden) refreshTape(); }, 30000);
+}
+init();
+</script>
+</body>
+</html>
